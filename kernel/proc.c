@@ -127,6 +127,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->tracemask=0;
   return p;
 }
 
@@ -266,6 +267,9 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
+  
+  // 继承父进程的mask
+  np->tracemask = p->tracemask;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -692,4 +696,18 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64 get_nproc()
+{
+    struct proc *p;
+    uint64 cnt = 0;
+    for (p = proc; p < &proc[NPROC]; p++)
+    {
+        if (p->state != UNUSED)
+        {
+            cnt++;
+        }
+    }
+    return cnt;
 }
