@@ -13,6 +13,21 @@ struct mbuf;
 struct sock;
 #endif
 
+// lab3-1
+void vmprint(pagetable_t);
+// 初始化kernel页表 lab3-2
+pagetable_t _kvminit();
+// 映射
+void _kvmmap(pagetable_t, uint64, uint64, uint64, int);
+// vm.c的walk函数
+pte_t* walk(pagetable_t, uint64, int);
+
+// lab3-3
+int copyin_new(pagetable_t, char*, uint64, uint64);
+int copyinstr_new(pagetable_t, char*, uint64, uint64);
+void uvm2kvm(pagetable_t, pagetable_t, uint64, uint64);
+
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
