@@ -311,7 +311,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // 不分配实际物理内存lab6
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -319,14 +320,21 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+
+    // 清除PTE_W标志位 增加COW标志位lab6
+    flags = PTE_FLAGS(*pte & (~PTE_W)) | PTE_COW;
+    *pte = PA2PTE(pa) | flags;
+
+    // 不分配实际物理内存lab6
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      // kfree(mem);
       goto err;
     }
+    // 计数增加
+    add_cnt(pa);
   }
   return 0;
 
@@ -358,7 +366,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    //pa0 = walkaddr(pagetable, va0);
+    pa0 = walkcowaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (dstva - va0);
@@ -440,3 +449,41 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// lab6
+uint64 walkcowaddr(pagetable_t pagetable, uint64 va) {
+  uint64 pa;
+  char* mem;
+  pte_t* pte;
+  uint flag;
+
+  // 判断范围
+  if (va >= MAXVA)
+    return 0;
+  // 找到虚拟地址对应的pte
+  pte = walk(pagetable, va, 0);
+  if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+    return 0;
+  pa = PTE2PA(*pte);
+  if ((*pte & PTE_W) == 0) {
+    if ((*pte & PTE_COW) == 0)
+      return 0;
+    // 分配新的物理内存
+    if ((mem = kalloc()) == 0)
+      return 0;
+    // 复制页表内容
+    memmove(mem, (void*)pa, PGSIZE);
+    // 取消COW标志位变为写标志
+    flag = (PTE_FLAGS(*pte) & (~PTE_COW)) | PTE_W;
+    
+    // 取消原来的映射 映射到新分配的物理内存
+    uvmunmap(pagetable, PGROUNDDOWN(va), 1, 1);
+    if (mappages(pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)mem, flag) != 0) {
+      kfree(mem);
+      return 0;
+    }
+    return (uint64)mem;
+  }
+  return pa;
+}
+

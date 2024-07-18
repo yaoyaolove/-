@@ -9,6 +9,11 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+// lab6
+void add_cnt(uint64);
+uint8 sub_cnt(uint64);
+uint64 walkcowaddr(pagetable_t, uint64);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
