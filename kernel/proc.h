@@ -94,6 +94,18 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
+ // lab4-3
+  // 间隔
+  int interval;
+  // 调用函数地址
+  uint64 handler;
+  // 经过的时钟周期数
+  int passtick;
+  // 记录中断的帧
+  struct trapframe* sigframe; 
+  // 是否已经进入中断
+  int sigflag;
+
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)

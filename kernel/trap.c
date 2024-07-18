@@ -76,6 +76,26 @@ usertrap(void)
   if(p->killed)
     exit(-1);
 
+// lab4-3
+  // 时钟中断
+  if (which_dev == 2) {
+    // 经过了规定的时间间隔重置 执行handler 并且还没中断过
+    if (p->interval != 0 && ++p->passtick == p->interval && p->sigflag == 0) {
+
+      // 使用 trapframe 后的一部分内存, trapframe大小为288B
+      // 因此只要在trapframe地址后288以上地址都可
+      // 此处512只是为了取整数幂
+      p->sigframe = p->trapframe + 512;
+      memmove(p->sigframe, p->trapframe, sizeof(struct trapframe));
+
+      p->passtick = 0;
+      p->trapframe->epc = p->handler;
+
+      p->sigflag = 1;
+    }
+  }
+
+
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
     yield();
