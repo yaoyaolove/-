@@ -1,6 +1,9 @@
 struct stat;
 struct rtcdate;
 
+// lab9-2
+int symlink(char* target, char* path);
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));

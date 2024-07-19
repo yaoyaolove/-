@@ -401,17 +401,42 @@ bmap(struct inode *ip, uint bn)
     return addr;
   }
 
+  // 到二级索引 lab9-1
+  bn -= NINDIRECT;
+  if (bn < NSECDIRECT) {
+    if ((addr = ip->addrs[NDIRECT + 1]) == 0) {
+      ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev);
+    }
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    
+    if ((addr = a[bn / NINDIRECT]) == 0) {
+      a[bn / NINDIRECT] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    bn %= NINDIRECT;
+    if ((addr = a[bn]) == 0) {
+      a[bn] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+    return addr;
+  }
+
   panic("bmap: out of range");
 }
-
 // Truncate inode (discard contents).
 // Caller must hold ip->lock.
 void
 itrunc(struct inode *ip)
 {
-  int i, j;
-  struct buf *bp;
-  uint *a;
+  // k, bp1, a1用于二级索引 lab9-1
+  int i, j, k;
+  struct buf *bp, *bp1;
+  uint *a, *a1;
 
   for(i = 0; i < NDIRECT; i++){
     if(ip->addrs[i]){
@@ -430,6 +455,29 @@ itrunc(struct inode *ip)
     brelse(bp);
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
+  }
+  // 释放二级索引的物理块
+  if (ip->addrs[NDIRECT + 1]) {
+    bp = bread(ip->dev, ip->addrs[NDIRECT + 1]);
+    a = (uint*)bp->data;
+    // 遍历二级索引
+    for (j = 0; j < NINDIRECT; ++j) {
+      if (a[j]) {
+        bp1 = bread(ip->dev, a[j]);
+        a1 = (uint*)bp1->data;
+        for (k = 0; k < NINDIRECT; ++k) {
+          if (a[k]) {
+            bfree(ip->dev, a1[k]);
+          }
+        }
+        brelse(bp1);
+        bfree(ip->dev, a[j]);
+        a[j] = 0;
+      }
+    }
+    brelse(bp);
+    bfree(ip->dev, ip->addrs[NDIRECT + 1]);
+    ip->addrs[NDIRECT + 1] = 0;;
   }
 
   ip->size = 0;
