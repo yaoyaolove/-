@@ -21,12 +21,15 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+// 修改为数组 每个CPU对应一个kmem lab8-1
+} kmem[NCPU];
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  // 给每个kmem初始化 lab8-1
+  for (int i = 0; i < NCPU; ++i)
+  	initlock(&kmem[i].lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -56,12 +59,16 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
-}
+  // 关闭中断 获取那个CPU lab8-1
+  push_off();
+  int index = cpuid();
+  pop_off();
 
+  acquire(&kmem[index].lock);
+  r->next = kmem[index].freelist;
+  kmem[index].freelist = r;
+  release(&kmem[index].lock);
+}
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
@@ -70,12 +77,30 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
+  // 关闭中断 获取那个CPU
+  push_off();
+  int index = cpuid();
+  pop_off();
 
+  acquire(&kmem[index].lock);
+  r = kmem[index].freelist;
+  // 有空闲款
+  if(r)
+    kmem[index].freelist = r->next;
+  else {
+  	for (int i = 0; i < NCPU; ++i) {
+		if (i == index)
+			continue;
+		acquire(&kmem[i].lock);
+		r = kmem[i].freelist;
+		if (r)
+			kmem[i].freelist = r->next;
+		release(&kmem[i].lock);
+		if (r)
+			break;
+	}
+  }
+  release(&kmem[index].lock);
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;

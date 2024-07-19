@@ -8,5 +8,7 @@ struct buf {
   struct buf *prev; // LRU cache list
   struct buf *next;
   uchar data[BSIZE];
+  // 用于LRU记录上次使用时间 lab8-2
+  uint tick;
 };
 
