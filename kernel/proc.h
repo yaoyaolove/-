@@ -82,6 +82,20 @@ struct trapframe {
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// 定义虚拟内存区域结构体lab10
+#define VMASIZE 16
+
+struct vma {
+  struct file *file;  // 文件结构体指针
+  uint64 addr;        // mmap映射起始地址
+  int len;            // mmap映射内存大小
+  int prot;           // 用户权限
+  int flags;          // mmap标志位
+  int offset;         // 文件偏移量
+  int fd;             // 文件描述符
+  int used;           // 是否使用过
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -103,4 +117,6 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  // 一个进程对应一个vma数组 lab10
+  struct vma vma[VMASIZE];
 };

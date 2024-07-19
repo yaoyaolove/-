@@ -1,6 +1,10 @@
 struct stat;
 struct rtcdate;
 
+// lab10
+void* mmap(void *, int, int, int, int, uint);
+int munmap(void *, int);
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
